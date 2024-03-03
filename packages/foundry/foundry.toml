@@ -4,6 +4,11 @@ out = 'out'
 libs = ['lib']
 fs_permissions = [{ access = "read-write", path = "./"}]
 
+[invariant]
+runs = 128
+depth = 128
+fail_on_revert = false
+
 [rpc_endpoints]
 default_network = "http://127.0.0.1:8545"
 localhost = "http://127.0.0.1:8545"
@@ -32,5 +37,7 @@ scroll = "https://rpc.scroll.io"
 [etherscan]
 polygonMumbai = { key = "${ETHERSCAN_API_KEY}" }
 goerli = { key = "${ETHERSCAN_API_KEY}" }
+
+
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
