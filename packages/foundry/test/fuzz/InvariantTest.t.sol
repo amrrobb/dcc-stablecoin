@@ -13,7 +13,7 @@ import {Handler} from "./Handler.t.sol";
 import {console} from "forge-std/console.sol";
 
 /**
- * Inariants
+ * Invariants
  *  1. collaterral must be greater than equal the DCC total supply
  *  2. getter view function sholud never revert - evergreen invariant
  */
@@ -49,12 +49,10 @@ contract InvariantTest is StdInvariant, Test {
         // Setup config and mint weth
         (tokenAddr, priceFeed, dec, heartbeat) = config.getActiveNetworkConfig("weth");
         wethConfig = NetworkConfig(tokenAddr, priceFeed, dec, heartbeat);
-        // ERC20Mock(tokenAddr).mint(address(dccEngine), WETH_STARTING_BALANCE);
 
         // Setup config and mint wbtc
         (tokenAddr, priceFeed, dec, heartbeat) = config.getActiveNetworkConfig("wbtc");
         wbtcConfig = NetworkConfig(tokenAddr, priceFeed, dec, heartbeat);
-        // ERC20Mock(tokenAddr).mint(address(dccEngine), WBTC_STARTING_BALANCE);
 
         handler = new Handler(dccEngine, dccStablecoin);
         targetContract(address(handler));

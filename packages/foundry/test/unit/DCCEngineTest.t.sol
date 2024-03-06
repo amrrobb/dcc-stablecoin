@@ -20,11 +20,6 @@ contract DCCEngineTest is Test {
     // ERC20Mock wethMock;
     // ERC20Mock wbtcMock;
 
-    // string[] tokenNames;
-    // address[] collateralTokenAddresses;
-    // address[] priceFeedAddresses;
-    // uint8[] collateralTokendDecimals;
-
     address user = makeAddr("user");
 
     struct NetworkConfig {
