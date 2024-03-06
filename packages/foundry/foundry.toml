@@ -7,7 +7,7 @@ fs_permissions = [{ access = "read-write", path = "./"}]
 [invariant]
 runs = 128
 depth = 128
-fail_on_revert = false
+fail_on_revert = true
 
 [rpc_endpoints]
 default_network = "http://127.0.0.1:8545"

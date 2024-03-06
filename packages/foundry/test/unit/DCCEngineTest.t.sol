@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: SEE LICENSE IN LICENSE
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
@@ -6,7 +6,6 @@ import {DeployDCCScript} from "../../script/DeployDCC.s.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {DCCEngine} from "../../contracts/DCCEngine.sol";
 import {DCCStablecoin} from "../../contracts/DCCStablecoin.sol";
-// import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 
 contract DCCEngineTest is Test {
@@ -14,6 +13,7 @@ contract DCCEngineTest is Test {
     DCCEngine dccEngine;
     DCCStablecoin dccStablecoin;
     HelperConfig config;
+    address sequencerUptimeFeed;
 
     uint256 deployerKey;
 
@@ -31,6 +31,7 @@ contract DCCEngineTest is Test {
         address tokenAddress;
         address priceFeed;
         uint8 decimals;
+        uint256 heartbeat;
     }
 
     NetworkConfig wethConfig;
@@ -53,63 +54,58 @@ contract DCCEngineTest is Test {
         //     string[] memory tokenNames
         // ) =
         // deployer.getDeployedParameters();
+        sequencerUptimeFeed = config.getActiveSequencerUptimeFeed();
+
         address tokenAddr;
         address priceFeed;
         uint8 dec;
+        uint256 heartbeat;
 
         // Setup config and mint weth
-        (tokenAddr, priceFeed, dec) = config.getActiveNetworkConfig("weth");
-        wethConfig = NetworkConfig(tokenAddr, priceFeed, dec);
+        (tokenAddr, priceFeed, dec, heartbeat) = config.getActiveNetworkConfig("weth");
+        wethConfig = NetworkConfig(tokenAddr, priceFeed, dec, heartbeat);
         ERC20Mock(tokenAddr).mint(user, WETH_STARTING_BALANCE);
 
         // Setup config and mint wbtc
-        (tokenAddr, priceFeed, dec) = config.getActiveNetworkConfig("wbtc");
-        wbtcConfig = NetworkConfig(tokenAddr, priceFeed, dec);
+        (tokenAddr, priceFeed, dec, heartbeat) = config.getActiveNetworkConfig("wbtc");
+        wbtcConfig = NetworkConfig(tokenAddr, priceFeed, dec, heartbeat);
         ERC20Mock(tokenAddr).mint(user, WBTC_STARTING_BALANCE);
     }
 
     // Constructor Tests
     address[] public tokenAddresses;
-    address[] public priceFeeds;
-    uint8[] public tokenDecimals;
+    // address[] public priceFeeds;
+    // uint8[] public tokenDecimals;
+    DCCEngine.CollateralInformation[] public collateralInformations;
 
     function testRevertIfTokenAddressesAndPriceFeedAddressesAmountsDontMatch() public {
         // 2 tokenAddresses
         tokenAddresses.push(wethConfig.tokenAddress);
         tokenAddresses.push(wbtcConfig.tokenAddress);
-        // 1 priceFeeds
-        priceFeeds.push(wethConfig.priceFeed);
 
-        vm.expectRevert(DCCEngine.DCCEngine__TokenAddressesAndPriceFeedAddressesAmountsDontMatch.selector);
-        new DCCEngine(tokenAddresses, priceFeeds, tokenDecimals);
-    }
+        // 1 collateral informations
+        collateralInformations.push(
+            DCCEngine.CollateralInformation(wethConfig.priceFeed, wethConfig.decimals, wethConfig.heartbeat)
+        );
 
-    function testRevertIfTokenAddressesAndTokenDecimalsAmountsDontMatch() public {
-        // 2 tokenAddresses
-        tokenAddresses.push(wethConfig.tokenAddress);
-        tokenAddresses.push(wbtcConfig.tokenAddress);
-        // 1 priceFeeds
-        priceFeeds.push(wethConfig.priceFeed);
-        priceFeeds.push(wbtcConfig.priceFeed);
-        // 1 tokenDecimals
-        tokenDecimals.push(wethConfig.decimals);
-
-        vm.expectRevert(DCCEngine.DCCEngine__TokenAddressesAndTokenDecimalsAmountsDontMatch.selector);
-        new DCCEngine(tokenAddresses, priceFeeds, tokenDecimals);
+        vm.expectRevert(DCCEngine.DCCEngine__TokenAddressesAndCollateralInforamtionsAmountDontMatch.selector);
+        new DCCEngine(tokenAddresses, collateralInformations, sequencerUptimeFeed);
     }
 
     function testSuccessInstantiateDCCEngine() public {
         // 2 tokenAddresses
         tokenAddresses.push(wethConfig.tokenAddress);
         tokenAddresses.push(wbtcConfig.tokenAddress);
-        // 1 priceFeeds
-        priceFeeds.push(wethConfig.priceFeed);
-        priceFeeds.push(wbtcConfig.priceFeed);
-        // 1 tokenDecimals
-        tokenDecimals.push(wethConfig.decimals);
-        tokenDecimals.push(wbtcConfig.decimals);
 
-        new DCCEngine(tokenAddresses, priceFeeds, tokenDecimals);
+        // 2 collateral informations
+        collateralInformations.push(
+            DCCEngine.CollateralInformation(wethConfig.priceFeed, wethConfig.decimals, wethConfig.heartbeat)
+        );
+        collateralInformations.push(
+            DCCEngine.CollateralInformation(wbtcConfig.priceFeed, wbtcConfig.decimals, wbtcConfig.heartbeat)
+        );
+
+        new DCCEngine(tokenAddresses, collateralInformations, sequencerUptimeFeed);
     }
 
     // Modifiers
@@ -125,7 +121,6 @@ contract DCCEngineTest is Test {
         }
         if (runWbtc) {
             ERC20Mock(wbtcConfig.tokenAddress).approve(address(dccEngine), WBTC_STARTING_BALANCE);
-
             dccEngine.depositCollateral(wbtcConfig.tokenAddress, WBTC_DEPOSITED);
         }
         vm.stopPrank();
@@ -198,6 +193,7 @@ contract DCCEngineTest is Test {
 
     function testGetAccountInformation() public depositedCollateral(1) {
         (uint256 totalDccMinted, uint256 collateralValueInUsd) = dccEngine.getAccountInformation(user);
+
         uint256 expectedUsdValue = dccEngine.getUsdValueFromTokenAmount(wethConfig.tokenAddress, WETH_DEPOSITED);
         assertEq(totalDccMinted, 0);
         assertEq(collateralValueInUsd, expectedUsdValue);

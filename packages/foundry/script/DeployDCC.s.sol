@@ -9,10 +9,12 @@ import {HelperConfig} from "./HelperConfig.s.sol";
 contract DeployDCCScript is ScaffoldETHDeploy {
     error InvalidPrivateKey(string);
 
-    address[] public collateralTokenAddresses;
-    address[] public priceFeedAddresses;
-    uint8[] public collateralTokendDecimals;
+    // address[] public priceFeedAddresses;
+    // uint8[] public collateralTokendDecimals;
     string[] public tokenNames;
+    address[] public collateralTokenAddresses;
+    DCCEngine.CollateralInformation[] public collateralInformations;
+    address public sequencerUptimeFeed;
     /*, address _owner */
 
     function run()
@@ -29,17 +31,17 @@ contract DeployDCCScript is ScaffoldETHDeploy {
         config = new HelperConfig();
 
         tokenNames = config.getTokenNames();
+        sequencerUptimeFeed = config.getActiveSequencerUptimeFeed();
         for (uint256 i = 0; i < tokenNames.length; i++) {
-            (address tokenAddress, address priceFeed, uint8 decimals) = config.getActiveNetworkConfig(tokenNames[i]);
-
+            (address tokenAddress, address priceFeed, uint8 decimals, uint256 heartbeat) =
+                config.getActiveNetworkConfig(tokenNames[i]);
             collateralTokenAddresses.push(tokenAddress);
-            priceFeedAddresses.push(priceFeed);
-            collateralTokendDecimals.push(decimals);
+            collateralInformations.push(DCCEngine.CollateralInformation(priceFeed, decimals, heartbeat));
         }
 
         vm.startBroadcast(deployerPrivateKey);
         dccEngine = new DCCEngine(
-            collateralTokenAddresses, priceFeedAddresses, collateralTokendDecimals
+            collateralTokenAddresses, collateralInformations, sequencerUptimeFeed
         );
         console.logString(string.concat("DCCEngine deployed at: ", vm.toString(address(dccEngine))));
 
@@ -57,11 +59,11 @@ contract DeployDCCScript is ScaffoldETHDeploy {
         exportDeployments();
     }
 
-    function getDeployedParameters()
-        public
-        view
-        returns (address[] memory, address[] memory, uint8[] memory, string[] memory)
-    {
-        return (collateralTokenAddresses, priceFeedAddresses, collateralTokendDecimals, tokenNames);
-    }
+    // function getDeployedParameters()
+    //     public
+    //     view
+    //     returns (address[] memory, address[] memory, uint8[] memory, string[] memory)
+    // {
+    //     return (collateralTokenAddresses, priceFeedAddresses, collateralTokendDecimals, tokenNames);
+    // }
 }
