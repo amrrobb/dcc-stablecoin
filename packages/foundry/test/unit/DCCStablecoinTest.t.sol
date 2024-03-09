@@ -3,12 +3,13 @@ pragma solidity 0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
 import {DCCStablecoin} from "../../contracts/DCCStablecoin.sol";
-// import {ERC20Mock} from "../mocks/ERC20Mock.sol";
 
 contract DCCStablecoinTest is Test {
     DCCStablecoin dccStablecoin;
 
     address owner = makeAddr("owner");
+    uint256 amountToMint = 100 ether;
+    uint256 amountToBurn = 50 ether;
 
     function setUp() public {
         dccStablecoin = new DCCStablecoin(owner);
@@ -17,7 +18,7 @@ contract DCCStablecoinTest is Test {
     function testReverOnMintToZeroAddress() public {
         vm.startPrank(owner);
         vm.expectRevert(DCCStablecoin.DCCStablecoin__NotZeroAddress.selector);
-        dccStablecoin.mint(address(0), 100);
+        dccStablecoin.mint(address(0), amountToMint);
         vm.stopPrank();
     }
 
@@ -28,9 +29,7 @@ contract DCCStablecoinTest is Test {
         vm.stopPrank();
     }
 
-    function tesSuccesstMintDCC() public {
-        uint256 amountToMint = 100;
-
+    function tesSuccesstmintDcc() public {
         vm.startPrank(owner);
         dccStablecoin.mint(address(this), amountToMint);
         vm.stopPrank();
@@ -41,7 +40,7 @@ contract DCCStablecoinTest is Test {
 
     function testBurnAmountMustGreaterThanZero() public {
         vm.startPrank(owner);
-        dccStablecoin.mint(address(this), 100);
+        dccStablecoin.mint(address(this), amountToMint);
         vm.expectRevert(DCCStablecoin.DCCStablecoin__AmountMustBeGreaterThanZero.selector);
         dccStablecoin.burn(0);
         vm.stopPrank();
@@ -49,23 +48,26 @@ contract DCCStablecoinTest is Test {
 
     function testBurnAmountCannotExceedTheBalance() public {
         vm.startPrank(owner);
-        dccStablecoin.mint(address(this), 100);
+        dccStablecoin.mint(address(this), amountToMint);
         vm.expectRevert(DCCStablecoin.DCCStablecoin__BurnAmountExceedsBalance.selector);
         dccStablecoin.burn(101);
         vm.stopPrank();
     }
 
-    function tesSuccesstBurnDCC() public {
-        uint256 amountToMint = 100;
-        uint256 amountToBurn = 50;
+    function testFailedWhenUseBurnFrom() public {
+        vm.prank(owner);
+        vm.expectRevert(DCCStablecoin.DCCStablecoin__BlockFunction.selector);
+        dccStablecoin.burnFrom(owner, amountToBurn);
+        vm.stopPrank();
+    }
 
+    function testSuccesstBurnDcc() public {
         vm.startPrank(owner);
-        dccStablecoin.mint(address(this), amountToMint);
-        vm.expectRevert(DCCStablecoin.DCCStablecoin__BurnAmountExceedsBalance.selector);
+        dccStablecoin.mint(owner, amountToMint);
         dccStablecoin.burn(amountToBurn);
         vm.stopPrank();
 
-        uint256 balance = dccStablecoin.balanceOf(address(this));
+        uint256 balance = dccStablecoin.balanceOf(owner);
         assertEq(balance, amountToMint - amountToBurn);
     }
 }

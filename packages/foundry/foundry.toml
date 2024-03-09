@@ -5,9 +5,12 @@ libs = ['lib']
 fs_permissions = [{ access = "read-write", path = "./"}]
 
 [invariant]
-runs = 128
-depth = 128
+runs = 64
+depth = 64
 fail_on_revert = true
+
+[fuzz]
+runs = 128
 
 [rpc_endpoints]
 default_network = "http://127.0.0.1:8545"

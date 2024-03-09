@@ -100,14 +100,14 @@ contract HelperConfig is Script {
         }
 
         // priceFeed and ERC20 instantiation for WETH
-        MockV3Aggregator wethPriceFeed = new MockV3Aggregator(WETH_DECIMALS, ETH_USD_PRICE);
+        MockV3Aggregator wethPriceFeed = new MockV3Aggregator(FEED_DECIMALS, ETH_USD_PRICE);
         ERC20Mock wethMock = new ERC20Mock("WETH", "WETH", WETH_DECIMALS);
         uint8 wethDecimals = wethMock.decimals();
 
         // priceFeed and ERC20 instantiation for WBTC
-        MockV3Aggregator wbtcPriceFeed = new MockV3Aggregator(WBTC_DECIMALS, BTC_USD_PRICE);
+        MockV3Aggregator wbtcPriceFeed = new MockV3Aggregator(FEED_DECIMALS, BTC_USD_PRICE);
         ERC20Mock wbtcMock = new ERC20Mock("WBTC", "WBTC", WBTC_DECIMALS);
-        uint8 wbtcDecimals = wethMock.decimals();
+        uint8 wbtcDecimals = wbtcMock.decimals();
 
         sequencerUptimeFeed = address(0);
         activeNetworkConfig["weth"] = NetworkConfig({

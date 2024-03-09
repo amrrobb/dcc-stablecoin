@@ -80,15 +80,14 @@ contract InvariantTest is StdInvariant, Test {
         //   dccEngine.getCollateralBalanceOfUser(address,address);
         // dccEngine.getCollateralInformation(address);
         dccEngine.getCollateralTokens();
-        dccEngine.getDCCAddress();
-        dccEngine.getDCCPrecision();
+        dccEngine.getDccAddress();
+        dccEngine.getDccPrecision();
         //   dccEngine.getHealthFactor(address);
         dccEngine.getLiquidationBonus();
         dccEngine.getLiquidationPrecision();
         dccEngine.getLiquidationThreshold();
         dccEngine.getMaxHealthFactor();
         dccEngine.getMinHealthFactor();
-        dccEngine.getPriceFeedAdditionalPrecision();
         //   dccEngine.getTokenAmountFromUsdValue(address,uint256);
         //   dccEngine.getUsdValueFromTokenAmount(address,uint256);
     }

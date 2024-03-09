@@ -70,7 +70,7 @@ contract Handler is Test {
 
     // Only DCC Engine is allowed to mint DCC
     // Uncomment if you already commented updateCollateralPrice
-    // function mintDCC(uint256 addressSeed, uint256 amount) public {
+    // function mintDcc(uint256 addressSeed, uint256 amount) public {
     //     if (collateralDepositedUsers.length == 0) {
     //         return;
     //     }
@@ -87,11 +87,11 @@ contract Handler is Test {
     //     }
 
     //     vm.startPrank(sender);
-    //     dccEngine.mintDCC(amount);
+    //     dccEngine.mintDcc(amount);
     //     vm.stopPrank();
     // }
 
-    function burnDCC(uint256 amount) public {
+    function burnDcc(uint256 amount) public {
         amount = bound(amount, 0, dccStablecoin.balanceOf(msg.sender));
         if (amount == 0) {
             return;
@@ -99,7 +99,7 @@ contract Handler is Test {
 
         vm.startPrank(msg.sender);
         dccStablecoin.approve(address(dccEngine), amount);
-        dccEngine.burnDCC(amount);
+        dccEngine.burnDcc(amount);
         vm.stopPrank();
     }
 

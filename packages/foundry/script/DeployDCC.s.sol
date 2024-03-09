@@ -45,7 +45,7 @@ contract DeployDCCScript is ScaffoldETHDeploy {
         );
         console.logString(string.concat("DCCEngine deployed at: ", vm.toString(address(dccEngine))));
 
-        address dccTokenAddress = dccEngine.getDCCAddress();
+        address dccTokenAddress = dccEngine.getDccAddress();
         dccStablecoin = DCCStablecoin(dccTokenAddress);
         console.logString(string.concat("DCCStablecoin deployed at: ", vm.toString(dccTokenAddress)));
 
