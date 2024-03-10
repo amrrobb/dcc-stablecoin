@@ -9,13 +9,10 @@ import {HelperConfig} from "./HelperConfig.s.sol";
 contract DeployDCCScript is ScaffoldETHDeploy {
     error InvalidPrivateKey(string);
 
-    // address[] public priceFeedAddresses;
-    // uint8[] public collateralTokendDecimals;
     string[] public tokenNames;
     address[] public collateralTokenAddresses;
     DCCEngine.CollateralInformation[] public collateralInformations;
     address public sequencerUptimeFeed;
-    /*, address _owner */
 
     function run()
         external
@@ -58,12 +55,4 @@ contract DeployDCCScript is ScaffoldETHDeploy {
          */
         exportDeployments();
     }
-
-    // function getDeployedParameters()
-    //     public
-    //     view
-    //     returns (address[] memory, address[] memory, uint8[] memory, string[] memory)
-    // {
-    //     return (collateralTokenAddresses, priceFeedAddresses, collateralTokendDecimals, tokenNames);
-    // }
 }
