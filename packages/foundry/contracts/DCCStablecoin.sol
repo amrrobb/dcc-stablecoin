@@ -26,24 +26,40 @@ contract DCCStablecoin is ERC20, ERC20Burnable, Ownable {
 
     constructor(address initialOwner) ERC20("Decentralized Coin", "DCC") Ownable(initialOwner) {}
 
+    /**
+     * @notice Mints new DCC tokens and transfers them to the specified address.
+     * @param to The address to receive the minted tokens.
+     * @param amount The amount of DCC tokens to mint.
+     * @return A boolean indicating whether the operation was successful.
+     * @dev Throws an error if the recipient address is zero or if the amount is zero.
+     */
     function mint(address to, uint256 amount) public onlyOwner returns (bool) {
         if (to == address(0)) {
             revert DCCStablecoin__NotZeroAddress();
         }
-        if (amount <= 0) {
+        if (amount == 0) {
             revert DCCStablecoin__AmountMustBeGreaterThanZero();
         }
         _mint(to, amount);
         return true;
     }
 
+    /**
+     * @notice Not callable. Reverts the transaction.
+     * @dev Prevents direct burning of tokens; tokens can only be burned through the burn function.
+     */
     function burnFrom(address, /* from */ uint256 /* amount */ ) public pure override {
         revert DCCStablecoin__BlockFunction();
     }
 
+    /**
+     * @notice Burns DCC tokens from the owner's balance.
+     * @param _amount The amount of DCC tokens to burn.
+     * @dev Throws an error if the amount is zero or if it exceeds the owner's balance.
+     */
     function burn(uint256 _amount) public override onlyOwner {
         uint256 balance = balanceOf(msg.sender);
-        if (_amount <= 0) {
+        if (_amount == 0) {
             revert DCCStablecoin__AmountMustBeGreaterThanZero();
         }
         if (balance < _amount) {

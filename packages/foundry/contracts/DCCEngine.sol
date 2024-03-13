@@ -124,6 +124,11 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
     /*//////////////////////////////////////////////////////
                           MODIFIERS      
     //////////////////////////////////////////////////////*/
+    /**
+     * @notice Modifier to ensure the provided amount is greater than zero.
+     * @param amount The amount to check.
+     * @dev Throws an error if the amount is zero.
+     */
     modifier moreThanZeroAmount(uint256 amount) {
         if (amount == 0) {
             revert DCCEngine__ShouldMoreThanZero();
@@ -131,6 +136,11 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         _;
     }
 
+    /**
+     * @notice Modifier to ensure the provided collateral token address is allowed.
+     * @param collateralTokenAddress The address of the collateral token.
+     * @dev Throws an error if the collateral token address is not allowed.
+     */
     modifier isAllowedToken(address collateralTokenAddress) {
         if (s_colateralInformations[collateralTokenAddress].priceFeed == address(0)) {
             revert DCCEngine__NotAllowedToken(collateralTokenAddress);
@@ -139,7 +149,7 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
     }
 
     /*//////////////////////////////////////////////////////
-                          FUNCTIONS      
+                          CONSTRUCTOR      
     //////////////////////////////////////////////////////*/
     constructor(
         address[] memory collateralTokenAddresses,
@@ -167,8 +177,14 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         i_sequencerUptimeFeed = _sequencerUptimeFeed;
     }
 
+    /*//////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+                      EXTERNAL FUNCTIONS      
+    ////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////*/
+
     /**
-     * @dev Deposit Collateral and Mint DCC
+     * @notice Deposit Collateral and Mint DCC
      * @dev Calls the depositCollateral and mintDcc functions to handle the deposit and minting process in one transaction.
      * @notice Deposits a specified amount of collateral tokens and mints a corresponding amount of DCC tokens.
      * @param collateralTokenAddress The address of the collateral token to be deposited.
@@ -182,39 +198,6 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
     ) external {
         depositCollateral(collateralTokenAddress, collateralAmount);
         mintDcc(dccAmountToMint);
-    }
-
-    /**
-     * @param collateralTokenAddress the address of the token that want to be deposited as collateral
-     * @param collateralAmount the amount of collateral to deposit
-     */
-    function depositCollateral(address collateralTokenAddress, uint256 collateralAmount)
-        public
-        moreThanZeroAmount(collateralAmount)
-        isAllowedToken(collateralTokenAddress)
-        nonReentrant
-    {
-        s_collateralDeposited[msg.sender][collateralTokenAddress] += collateralAmount;
-        emit CollateralDeposited(msg.sender, collateralTokenAddress, collateralAmount);
-        bool success = IERC20(collateralTokenAddress).transferFrom(msg.sender, address(this), collateralAmount);
-        if (!success) {
-            revert DCCEngine__TransferFailed(collateralTokenAddress);
-        }
-    }
-
-    /**
-     * @dev the funtion for minting DCC based on deposited collateralized token
-     * @notice can only minted DCC if you have enough collateral
-     * @param dccAmountToMint the amount of DCC token to mint
-     */
-    function mintDcc(uint256 dccAmountToMint) public moreThanZeroAmount(dccAmountToMint) nonReentrant {
-        s_dccMinted[msg.sender] += dccAmountToMint;
-        _revertIfBrokenHealthFactor(msg.sender);
-        bool minted = i_dcc.mint(msg.sender, dccAmountToMint);
-
-        if (!minted) {
-            revert DCCEngine__MintFailed();
-        }
     }
 
     /**
@@ -239,6 +222,12 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         _revertIfBrokenHealthFactor(msg.sender);
     }
 
+    /**
+     * @notice Redeems collateral tokens from the protocol.
+     * @param collateralTokenAddress The address of the collateral token.
+     * @param collateralAmount The amount of collateral tokens to redeem.
+     * @dev Throws an error if the collateral amount is zero, the collateral token is not allowed, or if the function is reentrant.
+     */
     function redeemCollateral(address collateralTokenAddress, uint256 collateralAmount)
         external
         moreThanZeroAmount(collateralAmount)
@@ -247,21 +236,6 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
     {
         _redeemCollateral(collateralTokenAddress, collateralAmount, msg.sender, msg.sender);
         _revertIfBrokenHealthFactor(msg.sender);
-    }
-
-    function _redeemCollateral(
-        address collateralTokenAddress,
-        uint256 collateralAmount,
-        address redeemFrom,
-        address redeemTo
-    ) private {
-        s_collateralDeposited[redeemFrom][collateralTokenAddress] -= collateralAmount;
-        emit CollateralRedeemed(redeemFrom, redeemTo, collateralTokenAddress, collateralAmount);
-
-        bool success = IERC20(collateralTokenAddress).transfer(redeemTo, collateralAmount);
-        if (!success) {
-            revert DCCEngine__TransferFailed(collateralTokenAddress);
-        }
     }
 
     /**
@@ -274,16 +248,6 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
     function burnDcc(uint256 dccAmountToBurn) external moreThanZeroAmount(dccAmountToBurn) {
         _burnDcc(dccAmountToBurn, msg.sender, msg.sender);
         // _revertIfBrokenHealthFactor(msg.sender); // I don't think this would ever hit...
-    }
-
-    function _burnDcc(uint256 dccAmountToBurn, address onBehalfOf, address dccFrom) private {
-        s_dccMinted[onBehalfOf] -= dccAmountToBurn;
-
-        bool success = i_dcc.transferFrom(dccFrom, address(this), dccAmountToBurn);
-        if (!success) {
-            revert DCCEngine__TransferFailed(address(i_dcc));
-        }
-        i_dcc.burn(dccAmountToBurn);
     }
 
     /**
@@ -330,17 +294,118 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
     }
 
     /*//////////////////////////////////////////////////////
-             INTERNAL & PRIVATE PURE & VIEW FUNCTIONS      
+    ////////////////////////////////////////////////////////
+                      PUBLIC FUNCTIONS      
+    ////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////*/
+
     /**
-     * @dev this function calculates the value of health factor
-     * @notice if user's health factor goes below "1", then they can get liquidated
+     * @notice Deposits collateral tokens into the protocol.
+     * @param collateralTokenAddress The address of the collateral token.
+     * @param collateralAmount The amount of collateral tokens to deposit.
+     * @dev Throws an error if the collateral amount is zero, the collateral token is not allowed, or if the function is reentrant.
+     */
+    function depositCollateral(address collateralTokenAddress, uint256 collateralAmount)
+        public
+        moreThanZeroAmount(collateralAmount)
+        isAllowedToken(collateralTokenAddress)
+        nonReentrant
+    {
+        s_collateralDeposited[msg.sender][collateralTokenAddress] += collateralAmount;
+        emit CollateralDeposited(msg.sender, collateralTokenAddress, collateralAmount);
+        bool success = IERC20(collateralTokenAddress).transferFrom(msg.sender, address(this), collateralAmount);
+        if (!success) {
+            revert DCCEngine__TransferFailed(collateralTokenAddress);
+        }
+    }
+
+    /**
+     * @notice Mints DCC tokens based on deposited collateralized tokens.
+     * @dev Can only mint DCC if there is enough collateral.
+     * @param dccAmountToMint The amount of DCC tokens to mint.
+     * @dev Throws an error if the DCC amount is zero or if the function is reentrant.
+     */
+    function mintDcc(uint256 dccAmountToMint) public moreThanZeroAmount(dccAmountToMint) nonReentrant {
+        s_dccMinted[msg.sender] += dccAmountToMint;
+        _revertIfBrokenHealthFactor(msg.sender);
+        bool minted = i_dcc.mint(msg.sender, dccAmountToMint);
+
+        if (!minted) {
+            revert DCCEngine__MintFailed();
+        }
+    }
+
+    /*//////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+                      PRIVATE FUNCTIONS      
+    ////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Redeems collateral tokens.
+     * @param collateralTokenAddress The address of the collateral token.
+     * @param collateralAmount The amount of collateral tokens to redeem.
+     * @param redeemFrom The address from which collateral is redeemed.
+     * @param redeemTo The address to which collateral is redeemed.
+     * @dev Updates collateral records and emits a CollateralRedeemed event.
+     * @dev Throws an error if the transfer of collateral tokens fails.
+     */
+    function _redeemCollateral(
+        address collateralTokenAddress,
+        uint256 collateralAmount,
+        address redeemFrom,
+        address redeemTo
+    ) private {
+        s_collateralDeposited[redeemFrom][collateralTokenAddress] -= collateralAmount;
+        emit CollateralRedeemed(redeemFrom, redeemTo, collateralTokenAddress, collateralAmount);
+
+        bool success = IERC20(collateralTokenAddress).transfer(redeemTo, collateralAmount);
+        if (!success) {
+            revert DCCEngine__TransferFailed(collateralTokenAddress);
+        }
+    }
+
+    /**
+     * @dev Burns DCC tokens.
+     * @param dccAmountToBurn The amount of DCC tokens to burn.
+     * @param onBehalfOf The address on behalf of which DCC tokens are burned.
+     * @param dccFrom The address from which DCC tokens are burned.
+     * @dev Updates DCC minting records and burns DCC tokens.
+     * @dev Throws an error if the transfer of DCC tokens fails.
+     */
+    function _burnDcc(uint256 dccAmountToBurn, address onBehalfOf, address dccFrom) private {
+        s_dccMinted[onBehalfOf] -= dccAmountToBurn;
+
+        bool success = i_dcc.transferFrom(dccFrom, address(this), dccAmountToBurn);
+        if (!success) {
+            revert DCCEngine__TransferFailed(address(i_dcc));
+        }
+        i_dcc.burn(dccAmountToBurn);
+    }
+
+    /*//////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////
+             INTERNAL & PRIVATE PURE & VIEW FUNCTIONS      
+    ////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////*/
+
+    /**
+     * @dev Calculates the user's health factor.
+     * @param user The address of the user.
+     * @return The calculated health factor value.
+     * @notice If the user's health factor drops below "MIN_HEALTH_FACTOR", they may be liquidated.
      */
     function _healthFactor(address user) private view returns (uint256) {
         (uint256 totalDccMinted, uint256 collateralValueInUsd) = _getAccountInformation(user);
         return _calculateHealthFactor(totalDccMinted, collateralValueInUsd);
     }
 
+    /**
+     * @dev Calculates the health factor.
+     * @param totalDccMinted The total amount of DCC tokens minted.
+     * @param collateralValueInUsd The value of collateral in USD.
+     * @return The calculated health factor value.
+     */
     function _calculateHealthFactor(uint256 totalDccMinted, uint256 collateralValueInUsd)
         internal
         pure
@@ -351,6 +416,10 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         return (collateralAdjustedByThreshold * DCC_PRECISION) / totalDccMinted;
     }
 
+    /**
+     * @dev Checks if the user's health factor is below the minimum threshold and reverts if true.
+     * @param user The address of the user.
+     */
     function _revertIfBrokenHealthFactor(address user) internal view {
         uint256 healthFactor = _healthFactor(user);
         if (healthFactor < MIN_HEALTH_FACTOR) {
@@ -358,6 +427,12 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         }
     }
 
+    /**
+     * @dev Retrieves the account information including the total DCC minted and collateral value in USD.
+     * @param user The address of the user.
+     * @return totalDccMinted The total amount of DCC tokens minted.
+     * @return collateralValueInUsd The total collateral value in USD.
+     */
     function _getAccountInformation(address user)
         private
         view
@@ -367,6 +442,11 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         collateralValueInUsd = _getCollateralValueOfUser(user);
     }
 
+    /**
+     * @dev Calculates the collateral value of the user in USD.
+     * @param user The address of the user.
+     * @return collateralValueInUsd The total collateral value in USD.
+     */
     function _getCollateralValueOfUser(address user) private view returns (uint256 collateralValueInUsd) {
         uint256 allowedToken = s_collateralTokens.length;
         for (uint256 i = 0; i < allowedToken;) {
@@ -379,6 +459,12 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         }
     }
 
+    /**
+     * @dev Retrieves the USD value of the specified token amount.
+     * @param tokenAddress The address of the token.
+     * @param amount The amount of tokens.
+     * @return The USD value of the token amount.
+     */
     function _getUsdValueFromTokenAmount(address tokenAddress, uint256 amount) private view returns (uint256) {
         CollateralInformation storage collateralInfo = s_colateralInformations[tokenAddress];
         AggregatorV3Interface priceFeed = AggregatorV3Interface(collateralInfo.priceFeed);
@@ -401,6 +487,12 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         return priceWithDecimals * amount / (10 ** collateralInfo.decimals);
     }
 
+    /**
+     * @dev Retrieves the token amount from the specified USD value.
+     * @param tokenAddress The address of the token.
+     * @param usdValue The USD value.
+     * @return The token amount equivalent to the USD value.
+     */
     function _getTokenAmountFromUsdValue(address tokenAddress, uint256 usdValue) private view returns (uint256) {
         CollateralInformation storage collateralInfo = s_colateralInformations[tokenAddress];
         AggregatorV3Interface priceFeed = AggregatorV3Interface(collateralInfo.priceFeed);
@@ -415,9 +507,12 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         return (usdValue * (10 ** collateralInfo.decimals)) / (priceWithDecimals);
     }
 
-    /*//////////////////////////////////////////////////////
-             EXTERNAL & PUBLIC PURE & VIEW FUNCTIONS      
-    //////////////////////////////////////////////////////*/
+    /**
+     * @dev Calculates the health factor based on the total minted DCC and collateral value in USD.
+     * @param totalDccMinted The total amount of DCC minted.
+     * @param collateralValueInUsd The total collateral value in USD.
+     * @return The calculated health factor.
+     */
     function calculateHealthFactor(uint256 totalDccMinted, uint256 collateralValueInUsd)
         external
         pure
@@ -426,54 +521,110 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         return _calculateHealthFactor(totalDccMinted, collateralValueInUsd);
     }
 
+    /**
+     * @dev Retrieves the liquidation bonus.
+     * @return The liquidation bonus percentage.
+     */
     function getLiquidationBonus() external pure returns (uint256) {
         return LIQUIDATION_BONUS;
     }
 
+    /**
+     * @dev Retrieves the liquidation threshold.
+     * @return The liquidation threshold.
+     */
     function getLiquidationThreshold() external pure returns (uint256) {
         return LIQUIDATION_THRESHOLD;
     }
 
+    /**
+     * @dev Retrieves the liquidation precision.
+     * @return The liquidation precision.
+     */
     function getLiquidationPrecision() external pure returns (uint256) {
         return LIQUIDATION_PRECISION;
     }
 
+    /**
+     * @dev Retrieves the minimum health factor.
+     * @return The minimum health factor.
+     */
     function getMinHealthFactor() external pure returns (uint256) {
         return MIN_HEALTH_FACTOR;
     }
 
+    /**
+     * @dev Retrieves the maximum health factor.
+     * @return The maximum health factor.
+     */
     function getMaxHealthFactor() external pure returns (uint256) {
         return MAX_HEALTH_FACTOR;
     }
 
+    /**
+     * @dev Retrieves the address of the DCC token.
+     * @return The address of the DCC token contract.
+     */
     function getDccAddress() external view returns (address) {
         return address(i_dcc);
     }
 
+    /**
+     * @dev Retrieves the precision of DCC.
+     * @return The precision of DCC.
+     */
     function getDccPrecision() external pure returns (uint256) {
         return DCC_PRECISION;
     }
 
+    /**
+     * @dev Retrieves the USD value of the specified token amount.
+     * @param tokenAddress The address of the token.
+     * @param amount The amount of tokens.
+     * @return The USD value of the token amount.
+     */
     function getUsdValueFromTokenAmount(address tokenAddress, uint256 amount) external view returns (uint256) {
         return _getUsdValueFromTokenAmount(tokenAddress, amount);
     }
 
+    /**
+     * @dev Retrieves the token amount from the specified USD value.
+     * @param tokenAddress The address of the token.
+     * @param usdValue The USD value.
+     * @return The token amount equivalent to the USD value.
+     */
     function getTokenAmountFromUsdValue(address tokenAddress, uint256 usdValue) external view returns (uint256) {
         return _getTokenAmountFromUsdValue(tokenAddress, usdValue);
     }
 
+    /**
+     * @dev Retrieves the health factor of the specified user.
+     * @param user The address of the user.
+     * @return The health factor of the user.
+     */
     function getHealthFactor(address user) external view returns (uint256) {
         return _healthFactor(user);
     }
 
+    /**
+     * @dev Retrieves the account information of the specified user.
+     * @param user The address of the user.
+     * @return totalDccMinted The total amount of DCC minted by the user.
+     * @return collateralValueInUsd The total collateral value in USD deposited by the user.
+     */
     function getAccountInformation(address user)
         external
         view
         returns (uint256 totalDccMinted, uint256 collateralValueInUsd)
     {
-        return _getAccountInformation(user);
+        (totalDccMinted, collateralValueInUsd) = _getAccountInformation(user);
     }
 
+    /**
+     * @dev Retrieves the collateral information of the specified collateral token.
+     * @param collateralTokenAddress The address of the collateral token.
+     * @return The collateral information.
+     */
     function getCollateralInformation(address collateralTokenAddress)
         external
         view
@@ -482,14 +633,29 @@ contract DCCEngine is ReentrancyGuard /*, Ownable */ {
         return s_colateralInformations[collateralTokenAddress];
     }
 
+    /**
+     * @dev Retrieves the list of collateral tokens.
+     * @return The list of collateral token addresses.
+     */
     function getCollateralTokens() external view returns (address[] memory) {
         return s_collateralTokens;
     }
 
+    /**
+     * @dev Retrieves the collateral balance of the specified user for the specified collateral token.
+     * @param user The address of the user.
+     * @param collateralTokenAddress The address of the collateral token.
+     * @return The collateral balance of the user for the specified collateral token.
+     */
     function getCollateralBalanceOfUser(address user, address collateralTokenAddress) external view returns (uint256) {
         return s_collateralDeposited[user][collateralTokenAddress];
     }
 
+    /**
+     * @dev Retrieves the total collateral value in USD for the specified user.
+     * @param user The address of the user.
+     * @return The total collateral value in USD.
+     */
     function getCollateralValueOfUser(address user) public view returns (uint256) {
         return _getCollateralValueOfUser(user);
     }
