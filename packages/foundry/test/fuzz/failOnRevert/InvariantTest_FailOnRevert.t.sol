@@ -3,13 +3,13 @@ pragma solidity 0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
-import {DeployDCCScript} from "../../script/DeployDCC.s.sol";
-import {HelperConfig} from "../../script/HelperConfig.s.sol";
-import {DCCEngine} from "../../contracts/DCCEngine.sol";
-import {DCCStablecoin} from "../../contracts/DCCStablecoin.sol";
+import {DeployDCCScript} from "../../../script/DeployDCC.s.sol";
+import {HelperConfig} from "../../../script/HelperConfig.s.sol";
+import {DCCEngine} from "../../../contracts/DCCEngine.sol";
+import {DCCStablecoin} from "../../../contracts/DCCStablecoin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {ERC20Mock} from "../mocks/ERC20Mock.sol";
-import {Handler} from "./Handler.t.sol";
+import {ERC20Mock} from "../../mocks/ERC20Mock.sol";
+import {Handler_FailOnRevert as Handler} from "./Handler_FailOnRevert.t.sol";
 import {console} from "forge-std/console.sol";
 
 /**
@@ -18,7 +18,7 @@ import {console} from "forge-std/console.sol";
  *  2. getter view function sholud never revert - evergreen invariant
  */
 
-contract InvariantTest is StdInvariant, Test {
+contract InvariantTest_FailOnRevert is StdInvariant, Test {
     DeployDCCScript deployer;
     DCCEngine dccEngine;
     DCCStablecoin dccStablecoin;
@@ -75,20 +75,23 @@ contract InvariantTest is StdInvariant, Test {
         assertGe(totalValue, dccTotalSupply);
     }
 
-    function invariant_getterShouldNevertRevert() public view {
-        //   dccEngine.getAccountInformation(address);
-        //   dccEngine.getCollateralBalanceOfUser(address,address);
-        // dccEngine.getCollateralInformation(address);
+    function invariant_getterShouldNevertRevert() public {
+        address addr = makeAddr("rand");
+
+        dccEngine.getAccountInformation(addr);
+        dccEngine.getCollateralBalanceOfUser(addr, addr);
+        dccEngine.getCollateralInformation(addr);
         dccEngine.getCollateralTokens();
         dccEngine.getDccAddress();
         dccEngine.getDccPrecision();
-        //   dccEngine.getHealthFactor(address);
+        dccEngine.getHealthFactor(addr);
         dccEngine.getLiquidationBonus();
         dccEngine.getLiquidationPrecision();
         dccEngine.getLiquidationThreshold();
         dccEngine.getMaxHealthFactor();
         dccEngine.getMinHealthFactor();
-        //   dccEngine.getTokenAmountFromUsdValue(address,uint256);
-        //   dccEngine.getUsdValueFromTokenAmount(address,uint256);
+        // Revert because token address is not allowed
+        // dccEngine.getTokenAmountFromUsdValue(addr, amount);
+        // dccEngine.getUsdValueFromTokenAmount(addr, amount);
     }
 }

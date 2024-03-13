@@ -3,21 +3,21 @@ pragma solidity 0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {StdInvariant} from "forge-std/StdInvariant.sol";
-import {DeployDCCScript} from "../../script/DeployDCC.s.sol";
-import {HelperConfig} from "../../script/HelperConfig.s.sol";
-import {DCCEngine} from "../../contracts/DCCEngine.sol";
-import {DCCStablecoin} from "../../contracts/DCCStablecoin.sol";
+import {DeployDCCScript} from "../../../script/DeployDCC.s.sol";
+import {HelperConfig} from "../../../script/HelperConfig.s.sol";
+import {DCCEngine} from "../../../contracts/DCCEngine.sol";
+import {DCCStablecoin} from "../../../contracts/DCCStablecoin.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MockV3Aggregator} from "@chainlink/contracts/src/v0.8/tests/MockV3Aggregator.sol";
-import {ERC20Mock} from "../mocks/ERC20Mock.sol";
+import {ERC20Mock} from "../../mocks/ERC20Mock.sol";
 import {console} from "forge-std/console.sol";
 
-contract Handler is Test {
+contract Handler_FailOnRevert is Test {
     DCCEngine dccEngine;
     DCCStablecoin dccStablecoin;
 
-    ERC20Mock wethMock;
-    ERC20Mock wbtcMock;
+    ERC20Mock public wethMock;
+    ERC20Mock public wbtcMock;
 
     MockV3Aggregator ethUsdPriceFeed;
     MockV3Aggregator btcUsdPriceFeed;
@@ -103,6 +103,28 @@ contract Handler is Test {
         vm.stopPrank();
     }
 
+    function liquidate(uint256 collateralSeed, address userToBeLiquidated, uint256 debtToCover) public {
+        uint256 minHealthFactor = dccEngine.getMinHealthFactor();
+        uint256 userHealthFactor = dccEngine.getHealthFactor(userToBeLiquidated);
+        if (userHealthFactor >= minHealthFactor) {
+            return;
+        }
+        debtToCover = bound(debtToCover, 1, MAX_DEPOSIT_SIZE);
+        ERC20Mock collateral = _getCollateralFromSeed(collateralSeed);
+        dccEngine.liquidate(address(collateral), userToBeLiquidated, debtToCover);
+    }
+
+    // DCC Stablecoin
+    function transferDcc(uint256 dccAmount, address to) public {
+        if (to == address(0)) {
+            to = address(1);
+        }
+        dccAmount = bound(dccAmount, 0, dccStablecoin.balanceOf(msg.sender));
+        vm.prank(msg.sender);
+        dccStablecoin.transfer(to, dccAmount);
+    }
+
+    // Aggregator
     function updateCollateralPrice(uint256 collateralSeed, uint96 newPrice) public {
         int256 intNewPrice = int256(uint256(newPrice));
         if (intNewPrice <= 0) {
@@ -123,11 +145,5 @@ contract Handler is Test {
 
     function _getSender(uint256 addressSeed) private view returns (address) {
         return collateralDepositedUsers[addressSeed % collateralDepositedUsers.length];
-    }
-
-    function callSummary() external view {
-        console.log("Weth total deposited", wethMock.balanceOf(address(dccEngine)));
-        console.log("Wbtc total deposited", wbtcMock.balanceOf(address(dccEngine)));
-        console.log("Total supply of DSC", dccStablecoin.totalSupply());
     }
 }
